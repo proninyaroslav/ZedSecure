@@ -2514,6 +2514,14 @@ private fun AdvancedPage(
             )
         }
         SettingsGroup {
+            if (!LocalPlatform.current.isComputer) {
+                SettingsSwitchRow(
+                    title = stringResource(Res.string.settings_send_hwid),
+                    summary = stringResource(Res.string.settings_send_hwid_summary),
+                    checked = s.sendSubscriptionHwid,
+                    onCheckedChange = { v -> onUpdate { it.copy(sendSubscriptionHwid = v) } },
+                )
+            }
             SettingsSwitchRow(
                 title = stringResource(Res.string.settings_auto_update_subs),
                 summary = stringResource(Res.string.settings_auto_update_subs_sub),

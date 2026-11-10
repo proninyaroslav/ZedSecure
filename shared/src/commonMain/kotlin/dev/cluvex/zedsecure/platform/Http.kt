@@ -17,6 +17,7 @@ internal expect fun httpGetResponse(
     url: String,
     userAgent: String,
     socksPort: Int? = null,
+    hwid: String? = null,
     connectTimeoutMs: Int = 15_000,
     readTimeoutMs: Int = 20_000,
 ): HttpTextResponse

@@ -185,6 +185,8 @@
     <string name="settings_ip_api">API сведений об IP</string>
     <string name="settings_real_delay">Реальная задержка</string>
     <string name="settings_real_delay_sub">Измерять через прокси, а не по прямому TCP-соединению</string>
+    <string name="settings_send_hwid">Отправлять HWID</string>
+    <string name="settings_send_hwid_summary">Отправлять идентификатор устройства при загрузке подписок</string>
     <string name="settings_auto_update_subs">Автообновление подписок</string>
     <string name="settings_auto_update_subs_sub">Периодически обновлять списки серверов подписок</string>
     <string name="settings_sub_interval">Интервал обновления</string>

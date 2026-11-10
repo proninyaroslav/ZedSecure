@@ -203,6 +203,7 @@ class SettingsRepository(context: Context) {
 
             geoFilesSource = prefs.enum("geo_source", d.geoFilesSource),
 
+            sendSubscriptionHwid = prefs.getBoolean("send_subscription_hwid", d.sendSubscriptionHwid),
             autoUpdateSubscriptions = prefs.getBoolean("auto_sub", d.autoUpdateSubscriptions),
             subscriptionUpdateIntervalHours = prefs.getInt("sub_interval", d.subscriptionUpdateIntervalHours),
             autoTestAfterUpdate = prefs.getBoolean("auto_test_after_update", d.autoTestAfterUpdate),
@@ -428,6 +429,7 @@ class SettingsRepository(context: Context) {
 
             putString("geo_source", s.geoFilesSource.name)
 
+            putBoolean("send_subscription_hwid", s.sendSubscriptionHwid)
             putBoolean("auto_sub", s.autoUpdateSubscriptions)
             putInt("sub_interval", s.subscriptionUpdateIntervalHours)
             putBoolean("auto_test_after_update", s.autoTestAfterUpdate)

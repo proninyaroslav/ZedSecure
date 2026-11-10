@@ -437,6 +437,7 @@ data class AppSettings(
 
     val geoFilesSource: GeoFilesSource = GeoFilesSource.Chocolate4U,
 
+    val sendSubscriptionHwid: Boolean = true,
     val autoUpdateSubscriptions: Boolean = false,
     val subscriptionUpdateIntervalHours: Int = 12,
     val autoTestAfterUpdate: Boolean = false,

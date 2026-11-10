@@ -184,6 +184,8 @@
     <string name="settings_ip_api">IP info API</string>
     <string name="settings_real_delay">Prefer real delay</string>
     <string name="settings_real_delay_sub">Measure through the proxy instead of a raw TCP connect</string>
+    <string name="settings_send_hwid">Send HWID</string>
+    <string name="settings_send_hwid_summary">Send a device identifier when fetching subscriptions</string>
     <string name="settings_auto_update_subs">Auto-update subscriptions</string>
     <string name="settings_auto_update_subs_sub">Refresh subscription server lists periodically</string>
     <string name="settings_sub_interval">Update interval</string>

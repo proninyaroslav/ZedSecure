@@ -23,7 +23,9 @@ import libv2ray.Libv2ray
 
 class AppContainer(context: Context) {
     val settingsRepository: SettingsRepository = SettingsRepository(context)
-    val configRepository: ConfigRepository = ConfigRepository(AndroidKeyValueStore(context, "zed_configs"))
+    val configRepository: ConfigRepository = ConfigRepository(AndroidKeyValueStore(context, "zed_configs")) {
+        if (settingsRepository.settings.value.sendSubscriptionHwid) subscriptionHwid(DeviceIdentity.id) else null
+    }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -177,4 +179,11 @@ private class TrafficAccountant(
             }
         }
     }
+}
+
+internal fun subscriptionHwid(androidId: String): String? {
+    if (androidId.isBlank()) return null
+    val digest = java.security.MessageDigest.getInstance("SHA-256").digest(androidId.toByteArray(Charsets.UTF_8))
+    val bytes = java.nio.ByteBuffer.wrap(digest)
+    return java.util.UUID(bytes.long, bytes.long).toString()
 }

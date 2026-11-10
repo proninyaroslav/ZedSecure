@@ -71,7 +71,10 @@ class CrossChainUnsupportedException(val reason: String, val engine: String) :
 class CrossChainUdpUnsupportedException(val protocol: String, val carrier: String) :
     Exception("$protocol needs UDP, which $carrier cannot relay")
 
-class ConfigRepository(private val store: KeyValueStore) {
+class ConfigRepository(
+    private val store: KeyValueStore,
+    private val subscriptionHwid: () -> String? = { null },
+) {
     private val json = Json { ignoreUnknownKeys = true }
     private val lenientJson = Json { ignoreUnknownKeys = true; isLenient = true }
     private val prettyJson = Json { prettyPrint = true }
@@ -1386,14 +1389,15 @@ class ConfigRepository(private val store: KeyValueStore) {
 
     private fun fetch(url: String, userAgent: String? = null): HttpTextResponse {
         val ua = resolveUa(userAgent)
+        val hwid = subscriptionHwid()?.takeIf { it.isNotBlank() }
         val tunnelPort = dev.cluvex.zedsecure.core.VpnManager.activeSocksPort?.takeIf {
             it > 0 && dev.cluvex.zedsecure.core.VpnManager.status.value.state ==
                 dev.cluvex.zedsecure.domain.model.ConnectionState.Connected
         }
         if (tunnelPort != null) {
-            runCatching { return httpGetResponse(url, userAgent = ua, socksPort = tunnelPort) }
+            runCatching { return httpGetResponse(url, userAgent = ua, socksPort = tunnelPort, hwid = hwid) }
         }
-        return httpGetResponse(url, userAgent = ua)
+        return httpGetResponse(url, userAgent = ua, hwid = hwid)
     }
 
     private fun resolveUa(userAgent: String?): String =

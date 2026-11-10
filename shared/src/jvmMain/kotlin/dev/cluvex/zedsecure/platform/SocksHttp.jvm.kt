@@ -77,6 +77,7 @@ internal fun rawHttpViaSocks(
     connectTimeoutMs: Int,
     readTimeoutMs: Int,
     redirects: Int = 5,
+    stripHwidOnCrossHost: Boolean = false,
 ): RawHttpResponse {
     val uri = URI(url)
     val https = uri.scheme.equals("https", ignoreCase = true)
@@ -136,15 +137,19 @@ internal fun rawHttpViaSocks(
         val location = responseHeaders["location"]
         if (code in 300..399 && code != 304 && location != null && redirects > 0) {
             val keep = code == 307 || code == 308
+            val next = uri.resolve(location)
+            val redirectHeaders = if (stripHwidOnCrossHost && !uri.host.equals(next.host, ignoreCase = true))
+                headers.filterKeys { !it.equals("x-hwid", ignoreCase = true) } else headers
             return rawHttpViaSocks(
                 method = if (keep) method else "GET",
-                url = uri.resolve(location).toString(),
-                headers = headers,
+                url = next.toString(),
+                headers = redirectHeaders,
                 body = if (keep) body else null,
                 socksPort = socksPort,
                 connectTimeoutMs = connectTimeoutMs,
                 readTimeoutMs = readTimeoutMs,
                 redirects = redirects - 1,
+                stripHwidOnCrossHost = stripHwidOnCrossHost,
             )
         }
 

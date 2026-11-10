@@ -31,47 +31,64 @@ internal actual fun httpGetResponse(
     url: String,
     userAgent: String,
     socksPort: Int?,
+    hwid: String?,
     connectTimeoutMs: Int,
     readTimeoutMs: Int,
 ): HttpTextResponse {
     if (socksPort != null && JvmRuntime.resolvesThroughProxy) {
-        val response = rawHttpViaSocks("GET", url, mapOf("User-Agent" to userAgent), null, socksPort, connectTimeoutMs, readTimeoutMs)
+        val headers = mutableMapOf("User-Agent" to userAgent)
+        if (!hwid.isNullOrBlank()) headers["x-hwid"] = hwid
+        val response = rawHttpViaSocks("GET", url, headers, null, socksPort, connectTimeoutMs, readTimeoutMs, stripHwidOnCrossHost = !hwid.isNullOrBlank())
         if (response.code !in 200..299) throw IllegalStateException("HTTP ${response.code}")
         return HttpTextResponse(response.code, response.body, response.headers)
     }
-    val target = URL(url)
-    val connection = (
-        if (socksPort != null) {
-            target.openConnection(
-                java.net.Proxy(java.net.Proxy.Type.SOCKS, java.net.InetSocketAddress.createUnresolved("127.0.0.1", socksPort)),
-            )
-        } else {
-            target.openConnection()
-        }
-        ) as HttpURLConnection
-    connection.apply {
-        connectTimeout = connectTimeoutMs
-        readTimeout = readTimeoutMs
-        instanceFollowRedirects = true
-        setRequestProperty("User-Agent", userAgent)
-    }
-    try {
-        val code = connection.responseCode
-        if (code !in 200..299) throw IllegalStateException("HTTP $code")
-
-        val headers = connection.headerFields.orEmpty().entries
-            .mapNotNull { (name, values) ->
-                val key = name?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
-                val value = values?.firstOrNull() ?: return@mapNotNull null
-                key to value
+    var target = URL(url)
+    var sendHwid = !hwid.isNullOrBlank()
+    var redirects = 0
+    while (true) {
+        val connection = (
+            if (socksPort != null) {
+                target.openConnection(
+                    java.net.Proxy(java.net.Proxy.Type.SOCKS, java.net.InetSocketAddress.createUnresolved("127.0.0.1", socksPort)),
+                )
+            } else {
+                target.openConnection()
             }
-            .toMap()
-        val body = connection.inputStream.bufferedReader().use { it.readText() }
-        return HttpTextResponse(code, body, headers)
-    } catch (e: NullPointerException) {
-        throw platformHttpFailure(e)
-    } finally {
-        connection.disconnectQuietly()
+            ) as HttpURLConnection
+        connection.apply {
+            connectTimeout = connectTimeoutMs
+            readTimeout = readTimeoutMs
+            instanceFollowRedirects = hwid.isNullOrBlank()
+            setRequestProperty("User-Agent", userAgent)
+            if (sendHwid) setRequestProperty("x-hwid", hwid)
+        }
+        try {
+            val code = connection.responseCode
+            val location = connection.getHeaderField("Location")
+            if (!hwid.isNullOrBlank() && code in listOf(301, 302, 303, 307, 308) && location != null && redirects < 20) {
+                val next = URL(target, location)
+                if (!next.protocol.equals(target.protocol, ignoreCase = true)) throw IllegalStateException("HTTP $code")
+                if (!next.host.equals(target.host, ignoreCase = true)) sendHwid = false
+                target = next
+                redirects++
+                continue
+            }
+            if (code !in 200..299) throw IllegalStateException("HTTP $code")
+
+            val headers = connection.headerFields.orEmpty().entries
+                .mapNotNull { (name, values) ->
+                    val key = name?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+                    val value = values?.firstOrNull() ?: return@mapNotNull null
+                    key to value
+                }
+                .toMap()
+            val body = connection.inputStream.bufferedReader().use { it.readText() }
+            return HttpTextResponse(code, body, headers)
+        } catch (e: NullPointerException) {
+            throw platformHttpFailure(e)
+        } finally {
+            connection.disconnectQuietly()
+        }
     }
 }
 
