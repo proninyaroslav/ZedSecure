@@ -56,3 +56,6 @@ __pycache__/
 /app/src/androidTest/
 /desktop/src/test/
 /shared/src/*Test/
+
+!/app/src/test/
+!/shared/src/desktopTest/

@@ -31,19 +31,20 @@ internal actual fun httpGetResponse(
     url: String,
     userAgent: String,
     socksPort: Int?,
-    hwid: String?,
+    deviceHeaders: Map<String, String>,
+    safeRedirects: Boolean,
     connectTimeoutMs: Int,
     readTimeoutMs: Int,
 ): HttpTextResponse {
     if (socksPort != null && JvmRuntime.resolvesThroughProxy) {
         val headers = mutableMapOf("User-Agent" to userAgent)
-        if (!hwid.isNullOrBlank()) headers["x-hwid"] = hwid
-        val response = rawHttpViaSocks("GET", url, headers, null, socksPort, connectTimeoutMs, readTimeoutMs, stripHwidOnCrossHost = !hwid.isNullOrBlank())
+        headers.putAll(deviceHeaders)
+        val response = rawHttpViaSocks("GET", url, headers, null, socksPort, connectTimeoutMs, readTimeoutMs, stripDeviceHeadersOnCrossOrigin = safeRedirects)
         if (response.code !in 200..299) throw IllegalStateException("HTTP ${response.code}")
         return HttpTextResponse(response.code, response.body, response.headers)
     }
     var target = URL(url)
-    var sendHwid = !hwid.isNullOrBlank()
+    var sendDeviceHeaders = deviceHeaders.isNotEmpty()
     var redirects = 0
     while (true) {
         val connection = (
@@ -58,17 +59,17 @@ internal actual fun httpGetResponse(
         connection.apply {
             connectTimeout = connectTimeoutMs
             readTimeout = readTimeoutMs
-            instanceFollowRedirects = hwid.isNullOrBlank()
+            instanceFollowRedirects = !safeRedirects
             setRequestProperty("User-Agent", userAgent)
-            if (sendHwid) setRequestProperty("x-hwid", hwid)
+            if (sendDeviceHeaders) deviceHeaders.forEach { (name, value) -> setRequestProperty(name, value) }
         }
         try {
             val code = connection.responseCode
             val location = connection.getHeaderField("Location")
-            if (!hwid.isNullOrBlank() && code in listOf(301, 302, 303, 307, 308) && location != null && redirects < 20) {
+            if (safeRedirects && code in listOf(301, 302, 303, 307, 308) && location != null && redirects < 20) {
                 val next = URL(target, location)
-                if (!next.protocol.equals(target.protocol, ignoreCase = true)) throw IllegalStateException("HTTP $code")
-                if (!next.host.equals(target.host, ignoreCase = true)) sendHwid = false
+                if (next.protocol !in listOf("http", "https")) throw IllegalStateException("HTTP $code")
+                if (!sameHttpOrigin(target, next)) sendDeviceHeaders = false
                 target = next
                 redirects++
                 continue
@@ -145,3 +146,8 @@ internal actual suspend fun httpJson(
         connection.disconnectQuietly()
     }
 }
+
+internal fun sameHttpOrigin(a: URL, b: URL): Boolean =
+    a.protocol.equals(b.protocol, ignoreCase = true) &&
+        a.host.equals(b.host, ignoreCase = true) &&
+        (if (a.port == -1) a.defaultPort else a.port) == (if (b.port == -1) b.defaultPort else b.port)

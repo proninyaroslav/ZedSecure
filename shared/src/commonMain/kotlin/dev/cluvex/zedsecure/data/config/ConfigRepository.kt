@@ -73,7 +73,8 @@ class CrossChainUdpUnsupportedException(val protocol: String, val carrier: Strin
 
 class ConfigRepository(
     private val store: KeyValueStore,
-    private val subscriptionHwid: () -> String? = { null },
+    private val safeSubscriptionRedirects: Boolean = false,
+    private val subscriptionDeviceHeaders: () -> Map<String, String> = { emptyMap() },
 ) {
     private val json = Json { ignoreUnknownKeys = true }
     private val lenientJson = Json { ignoreUnknownKeys = true; isLenient = true }
@@ -1389,15 +1390,15 @@ class ConfigRepository(
 
     private fun fetch(url: String, userAgent: String? = null): HttpTextResponse {
         val ua = resolveUa(userAgent)
-        val hwid = subscriptionHwid()?.takeIf { it.isNotBlank() }
+        val deviceHeaders = subscriptionDeviceHeaders()
         val tunnelPort = dev.cluvex.zedsecure.core.VpnManager.activeSocksPort?.takeIf {
             it > 0 && dev.cluvex.zedsecure.core.VpnManager.status.value.state ==
                 dev.cluvex.zedsecure.domain.model.ConnectionState.Connected
         }
         if (tunnelPort != null) {
-            runCatching { return httpGetResponse(url, userAgent = ua, socksPort = tunnelPort, hwid = hwid) }
+            runCatching { return httpGetResponse(url, userAgent = ua, socksPort = tunnelPort, deviceHeaders = deviceHeaders, safeRedirects = safeSubscriptionRedirects) }
         }
-        return httpGetResponse(url, userAgent = ua, hwid = hwid)
+        return httpGetResponse(url, userAgent = ua, deviceHeaders = deviceHeaders, safeRedirects = safeSubscriptionRedirects)
     }
 
     private fun resolveUa(userAgent: String?): String =

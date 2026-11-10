@@ -23,8 +23,11 @@ import libv2ray.Libv2ray
 
 class AppContainer(context: Context) {
     val settingsRepository: SettingsRepository = SettingsRepository(context)
-    val configRepository: ConfigRepository = ConfigRepository(AndroidKeyValueStore(context, "zed_configs")) {
-        if (settingsRepository.settings.value.sendSubscriptionHwid) subscriptionHwid(DeviceIdentity.id) else null
+    val configRepository: ConfigRepository = ConfigRepository(AndroidKeyValueStore(context, "zed_configs"), safeSubscriptionRedirects = true) {
+        subscriptionDeviceHeaders(
+            settingsRepository.settings.value.sendSubscriptionHwid, DeviceIdentity.id,
+            android.os.Build.VERSION.RELEASE.orEmpty(), android.os.Build.MODEL.orEmpty(),
+        )
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -184,6 +187,20 @@ private class TrafficAccountant(
 internal fun subscriptionHwid(androidId: String): String? {
     if (androidId.isBlank()) return null
     val digest = java.security.MessageDigest.getInstance("SHA-256").digest(androidId.toByteArray(Charsets.UTF_8))
+    digest[6] = ((digest[6].toInt() and 0x0f) or 0x80).toByte()
+    digest[8] = ((digest[8].toInt() and 0x3f) or 0x80).toByte()
     val bytes = java.nio.ByteBuffer.wrap(digest)
     return java.util.UUID(bytes.long, bytes.long).toString()
+}
+
+internal fun subscriptionDeviceHeaders(enabled: Boolean, androidId: String, osVersion: String, model: String): Map<String, String> {
+    if (!enabled) return emptyMap()
+    val hwid = subscriptionHwid(androidId) ?: return emptyMap()
+    fun safe(value: String) = value.filter { it in ' '..'~' }.trim()
+    return buildMap {
+        put("x-hwid", hwid)
+        put("x-device-os", "Android")
+        safe(osVersion).takeIf { it.isNotEmpty() }?.let { put("x-ver-os", it) }
+        safe(model).takeIf { it.isNotEmpty() }?.let { put("x-device-model", it) }
+    }
 }

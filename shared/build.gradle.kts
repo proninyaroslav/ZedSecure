@@ -60,6 +60,7 @@ kotlin {
                 implementation(libs.androidx.activity.compose)
             }
         }
+        getByName("desktopTest") { dependencies { implementation(libs.junit) } }
         getByName("desktopMain") {
             dependsOn(jvmMain)
             dependencies {
